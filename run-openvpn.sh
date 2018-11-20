@@ -27,6 +27,9 @@ DEFAULTGW=`ip ro ls | grep default | awk '{print $3}'`
 	exit 1; 
 }
 
+echo remote: $REMOTE > /dev/stderr;
+RESOLVED_REMOTE=`dig $REMOTE | awk '/^;; ANSWER SECTION:$/ { getline ; print $5 }'`
+echo resolved: $RESOLVED_REMOTE > /dev/stderr;
 
 # flush and set policies
 iptables -P INPUT DROP
@@ -42,7 +45,7 @@ iptables -A INPUT -p udp  -m state --state RELATED,ESTABLISHED -j ACCEPT
 iptables -A INPUT -p icmp -m state --state RELATED,ESTABLISHED -j ACCEPT 
 
 # vpn server
-iptables -A OUTPUT -o eth0 -d $REMOTE -j ACCEPT
+iptables -A OUTPUT -o eth0 -d $RESOLVED_REMOTE -j ACCEPT
 
 # allow output on tun0
 iptables -A OUTPUT -o tun0 -j ACCEPT
@@ -51,7 +54,7 @@ iptables -A OUTPUT -o tun0 -j ACCEPT
 ip ro del default
 
 # add a route only for the VPN server
-ip ro add $REMOTE via $DEFAULTGW dev eth0
+ip ro add $RESOLVED_REMOTE via $DEFAULTGW dev eth0
 
 /usr/sbin/openvpn --script-security 2 --up /usr/local/bin/openvpn-up.sh \
 	--status /etc/openvpn_host/openvpnconfig.status 10 --redirect-gateway local \
